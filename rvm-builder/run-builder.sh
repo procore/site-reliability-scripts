@@ -3,6 +3,9 @@
 USAGE="./run-builder.sh node-name s3://your-bucket"
 NODE_NAME=$1
 BUCKET_NAME=$2
+
+RVM_BUILDER_FOLDER=`dirname "$0"`
+
 salt_parms="cwd=/home/$USER"
 
 if [ -z "${NODE_NAME}" ] || [ -z "${BUCKET_NAME}" ]; then
@@ -11,7 +14,7 @@ if [ -z "${NODE_NAME}" ] || [ -z "${BUCKET_NAME}" ]; then
 fi
 
 echo "Copying over scripts needed to setup vm, rvm, and install ruby..."
-scp builder-scripts/*.sh $NODE_NAME:~/
+scp $RVM_BUILDER_FOLDER/builder-scripts/*.sh $NODE_NAME:~/
 
 echo "Setting up instance..."
 sudo salt $NODE_NAME cmd.run $salt_parms "./setup-vm.sh"
