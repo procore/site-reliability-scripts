@@ -51,7 +51,6 @@ class Import < Thor
     else
       puts "ERROR:"
       puts "Could not find importer script at: #{importer_path}"
-      return
     end
   end
 
@@ -60,25 +59,25 @@ end
 class Export < Thor
   desc "nodes", "Export node definitions with flavor, image, and security groups"
   def nodes
-    create_output_folder!
+    create_output_folder
     node_export
   end
 
   desc "flavor", "Export flavors"
   def flavor
-    create_output_folder!
+    create_output_folder
     flavor_export
   end
 
   desc "secgroup", "Export security groups"
   def secgroup
-    create_output_folder!
+    create_output_folder
     secgroup_export
   end
 
   desc "all", "Export all"
   def all
-    create_output_folder!
+    create_output_folder
     secgroup_export
     flavor_export
     node_export
@@ -113,7 +112,7 @@ class Export < Thor
         if sec_description.nil?
           importer_script.puts("neutron security-group-create #{secgroup_name}")
         else
-          importer_script.puts("neutron security-group-create #{secgroup_name} --description #{sec_description}")
+          importer_script.puts("neutron security-group-create #{secgroup_name} --description \"#{sec_description}\"")
         end
 
         # Parse out the actual rules. It requires a little bit of hackery because its not actually json.
@@ -125,6 +124,10 @@ class Export < Thor
           rule.each do |key, val|
             unless val.nil?
               opt = key.gsub(/_/, "-")
+              # Skip over id's, as they will be different upon creation in the new OpenStack installation
+              if opt == "id" or opt == "security-group-id"
+                next
+              end
               importer_script.puts("        --#{opt} #{val} \\")
             end
           end
@@ -159,11 +162,12 @@ class Export < Thor
   def flavor_export
     flavors = `nova flavor-list`.split("\n")[3..-2]
     # Clean up terminal output
-    flavors = flavors.map{ |f|
-      f = f.split("|").map{ |d|
-        d = d.strip()
-      }
-    }
+    flavors = flavors.map do |f|
+      f = f.split("|").map do |d|
+        d = d.strip
+      end
+    end
+
 
     CSV.open("#{OUTPUT_FOLDER}/#{FILE_NAMES[:flavors]}", "w",
             :write_headers => true,
@@ -174,7 +178,7 @@ class Export < Thor
     end
   end
 
-  def create_output_folder!
+  def create_output_folder
     begin
       FileUtils.mkdir(OUTPUT_FOLDER)
     rescue
