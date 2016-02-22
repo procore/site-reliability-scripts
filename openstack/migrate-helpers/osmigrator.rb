@@ -141,22 +141,49 @@ class Export < Thor
   end
 
   def node_export
+    deploy_script = File.open("#{OUTPUT_FOLDER}/node_deploy.sh", "w")
+    deploy_script.puts("#!/bin/bash")
+    deploy_script.puts("\n# *****************")
+    deploy_script.puts("# AUTO GENERATED SCRIPT")
+    deploy_script.puts("# *****************\n\n")
     CSV.open("#{OUTPUT_FOLDER}/#{FILE_NAMES[:nodes]}", "w",
              :col_sep => '|',
              :write_headers => true,
              :headers => ["node_name", "flavor-image", "raw-flavor", "raw-image", "security_groups"]) do |export|
-      all_nodes = `nova list | grep SERVICE | cut -d'|' -f3 | sort`.split("\n").map{|n| n = n.strip }
+      all_nodes = `nova list | grep SERVICE | cut -d'|' -f3 | sort -r`.split("\n").map{|n| n = n.strip }
       all_nodes.each do |node|
         # [flavor, image, security_groups]
-        node_details = `nova show #{node} | grep -E '(flavor|image|security_groups)' | cut -d'|' -f3`
+        node_details = `nova show #{node} | grep -E '(flavor|image|security_groups)' | grep -v 'name' | cut -d'|' -f3`
         node_details = node_details.split("\n").map{ |r| r = r.split("(")[0].strip }
 
         # ["m1.medium", "trusty-image"] -> "trusty.medium"
         flavor_image = node_details[1].split('-')[0] + "." + node_details[0].split(".")[1]
 
         export << [node, flavor_image, node_details[0], node_details[1], node_details[2]]
+
+        # Now create deploy.sh commands.
+        deploy_script.puts("echo '***************'")
+        deploy_script.puts("echo 'Now creating #{node} as a #{flavor_image}'")
+        deploy_script.puts("echo '***************'")
+        deploy_script.puts("deploy.sh #{node} #{flavor_image}")
+
+        # Filter out security groups that contain the word `default`
+        non_default_secgroups = node_details[2].split(', ').select{ |s| !s.include? 'default' }
+        if non_default_secgroups.length > 0
+          deploy_script.puts("echo '***************'")
+          deploy_script.puts("echo 'Now adding security groups to #{node}'")
+          deploy_script.puts("echo '***************'")
+          non_default_secgroups.each do |secgroup|
+            deploy_script.puts("nova add-secgroup #{node} #{secgroup}")
+          end
+        end
+
+        # Add some extra padding for easier readability within the script.
+        deploy_script.puts("\n")
+        deploy_script.puts("\n")
       end
     end
+    deploy_script.close
   end
 
   def flavor_export
