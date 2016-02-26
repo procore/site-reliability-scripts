@@ -1,0 +1,85 @@
+#!/usr/bin/ruby
+
+# Original Author: Matt Casper (@mcasper/mattc@procore.com)
+
+require 'redis'
+require 'optparse'
+
+old_namespace = nil
+new_namespace = nil
+
+parser = OptionParser.new
+
+parser.banner = "Usage: redis_migrator old_redis_url new_redis_url <options>"
+
+parser.on("--old-namespace [old_namespace]", String, "The namespace to use when connecting to the old redis connection.") do |o|
+  old_namespace = o
+end
+
+parser.on("--new-namespace [new_namespace]", String, "The namespace to use when connecting to the new redis connection.") do |n|
+  new_namespace = n
+end
+
+parser.on_tail("-h", "--help", "Show this message") do
+  puts parser
+  puts "NOTE: To use namespaces, you must have the redis-namespace gem installed"
+  exit 0
+end
+
+parser.parse!
+
+if ARGV[0].nil? || ARGV[1].nil?
+  puts "Please provide an old_redis_url and new_redis_url as arguments."
+  exit 1
+end
+
+old_redis = Redis.new(url: ARGV[0])
+new_redis = Redis.new(url: ARGV[1])
+
+if !old_namespace.nil?
+  require 'redis-namespace'
+  old_redis = Redis::Namespace.new(old_namespace, redis: old_redis)
+end
+
+if !new_namespace.nil?
+  require 'redis-namespace'
+  new_redis = Redis::Namespace.new(new_namespace, redis: new_redis)
+end
+
+
+old_redis.keys.each do |key|
+  begin
+    case old_redis.type(key)
+    when "string"
+      new_redis.set(key, old_redis.get(key))
+    when "list"
+      # This should preserve the list's ordering as well (if it was sorted),
+      # because we walk the list by index and then push to the end of the list.
+      (0..old_redis.llen(key)).each do |i|
+        value = old_redis.lindex(key, i)
+        new_redis.lpush(key, value)
+      end
+    when "set"
+      members = old_redis.smembers(key)
+      members.each do |member|
+        new_redis.sadd(key, member)
+      end
+    when "zset"
+      # This ranges over all the keys in the zset, making sure to get back
+      # the scores as well. The scores/values are returned in reverse order
+      # than what you set them in, which is why we have to map reverse
+      # over all the sets we get back.
+      zsets = old_redis.zrange(key, 0, -1, with_scores: true)
+      new_redis.zadd(key, zsets.map(&:reverse))
+    when "hash"
+      hash = old_redis.hgetall(key)
+      hash.each do |hkey, hvalue|
+        new_redis.hset(key, hkey, hvalue)
+      end
+    end
+  rescue Redis::CommandError => e
+    puts "Sadness! Failed on key #{key} with type #{old_redis.type(key)} with error #{e}."
+  end
+end
+
+puts "Successfully migrated keys from #{old_redis.inspect} to #{new_redis.inspect}"
