@@ -20,28 +20,17 @@ Aws.config.update({
 })
 EC2Resources = Aws::EC2::Resource.new()
 
-class NovaContainment < Thor
+class Nova < Thor
   desc "contain NAME", "Contain the Nova VM NAME"
   def contain(name)
-    nova_contain(name)
-  end
-
-  def nova_contain(name)
       groups_list = JSON.parse(`neutron security-group-list -f json`)
-      already_exists = false
-      groups_list.each do |group|
-        if group["name"] == SECURITY_GROUP_NAME
-          already_exists = true
-        end
-      end
-
-      if !already_exists
+      unless groups_list.any? { |group| group["name"] == SECURITY_GROUP_NAME }
         `neutron security-group-create #{SECURITY_GROUP_NAME}`
       end
 
       # Get an array for current security groups assigned to a VM
       current_secgroups = `nova list-secgroup #{name} | cut -d'|' -f3`
-      current_secgroups = current_secgroups.split("\n")[3..-2].map{ |sg| sg.strip }
+      current_secgroups = current_secgroups.split("\n")[3..-2].map(&:strip)
 
       # Remove all currently assigned security groups
       current_secgroups.each do |sg|
@@ -52,25 +41,11 @@ class NovaContainment < Thor
   end
 end
 
-class EC2Containment < Thor
+class EC2 < Thor
   desc "contain ID", "Contain the EC2 Instance with ID"
   def contain(id)
-    ec2_contain(id)
-  end
-
-  def ec2_contain(id)
     vm = EC2Resources.instance(id)
-    containment_sg = nil
-
-    already_exists = false
-    EC2Resources.security_groups.each do |sg|
-      if sg.group_name == SECURITY_GROUP_NAME && sg.vpc_id.nil?
-        already_exists = true
-        containment_sg = sg
-      end
-    end
-
-    if !already_exists
+    unless EC2Resources.security_groups.any? { |sg| sg.group_name == SECURITY_GROUP_NAME && sg.vpc_id == vm.vpc_id }
       new_sg_params = {
         group_name: SECURITY_GROUP_NAME,
         description: "Security group for locking down a VM."
@@ -82,23 +57,27 @@ class EC2Containment < Thor
       containment_sg = EC2Resources.create_security_group(new_sg_params)
     end
 
+    containment_sg ||= EC2Resources.security_groups.detect { |sg| sg.group_name == SECURITY_GROUP_NAME && sg.vpc_id == vm.vpc_id }
+
     # Remove all security groups
-    vm.modify_attribute({groups: []})
+    vm.modify_attribute({ groups: [] })
 
     if containment_sg.nil?
       abort "Something went really wrong and the containment security group was not created."
     end
 
     # Add back only containement security group
-    vm.modify_attribute({groups: [containment_sg.id]})
+    vm.modify_attribute({ groups: [containment_sg.id] })
 
   end
 end
 
 class VMContainment < Thor
   desc "nova", "Command for containing Nova VM's"
-  subcommand "nova", NovaContainment
+  subcommand "nova", Nova
 
   desc "ec2", "Command for containing EC2 VM's"
-  subcommand "ec2", EC2Containment
+  subcommand "ec2", EC2
 end
+
+VMContainment.start(ARGV)
