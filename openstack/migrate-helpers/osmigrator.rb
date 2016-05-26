@@ -108,7 +108,7 @@ class Export < Thor
         importer_script.puts("# Start of #{secgroup_name} Rules")
 
         # Add the command to create the security group.
-        sec_description = group_details[0]["Value"]
+        sec_description = group_details["description"]
         if sec_description.nil?
           importer_script.puts("neutron security-group-create #{secgroup_name}")
         else
@@ -116,7 +116,7 @@ class Export < Thor
         end
 
         # Parse out the actual rules. It requires a little bit of hackery because its not actually json.
-        rules = JSON.parse('[' + group_details[3]["Value"].gsub(/}\n/, "},") + ']')
+        rules = JSON.parse('[' + group_details["security_group_rules"].gsub(/}\n/, "},") + ']')
 
         rules.each do |rule|
           #$ neutron security-group-rule-create --direction ingress --ethertype IPv4 --protocol tcp --port-range-min 80 --port-range-max 80 --remote-ip-prefix 0.0.0.0/0 global_http
