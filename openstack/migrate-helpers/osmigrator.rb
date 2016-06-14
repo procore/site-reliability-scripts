@@ -161,11 +161,11 @@ class Export < Thor
 
         export << [node, flavor_image, node_details[0], node_details[1], node_details[2]]
 
-        # Now create deploy.sh commands.
+        # Now create server deploy commands.
         deploy_script.puts("echo '***************'")
         deploy_script.puts("echo 'Now creating #{node} as a #{flavor_image}'")
         deploy_script.puts("echo '***************'")
-        deploy_script.puts("deploy.sh #{node} #{flavor_image}")
+        deploy_script.puts("server deploy #{node} #{flavor_image}")
 
         # Filter out security groups that contain the word `default`
         non_default_secgroups = node_details[2].split(', ').select{ |s| !s.include? 'default' }
