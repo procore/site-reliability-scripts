@@ -33,7 +33,7 @@ sudo salt $salt_target cmd.run $salt_params "./install-rvm.sh $USER"
 echo "************"
 echo "Building ruby binaries. Please note, this may take a long time."
 echo "************"
-for ruby_ver in "2.2.1" "2.2.2" "2.2.3" "2.3.0" "2.3.1"
+for ruby_ver in "2.2.1" "2.2.2" "2.2.3" "2.3.0" "2.3.1" "2.3.1-jemalloc -C --with-jemalloc"
 do
     echo "Building ruby version: $ruby_ver"
     sudo salt $salt_target cmd.run $salt_params "./install-ruby.sh $ruby_ver"
