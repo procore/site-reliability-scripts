@@ -69,7 +69,7 @@ def clone_and_modify_instance_parameter_group(client, source, target, family)
   resp = client.copy_db_parameter_group({
                                             source_db_parameter_group_identifier: source,
                                             target_db_parameter_group_identifier: target,
-                                            target_db_parameter_group_description: "Custom ParameterGroup with Connection Logging Enabled",
+                                            target_db_parameter_group_description: "Procore Paramaters with Connection Logging Enabled",
                                         })
 
   if resp.db_parameter_group.db_parameter_group_name == target
