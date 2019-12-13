@@ -15,10 +15,10 @@ end
 
 def clone_cluster_parameter_group(client, source, target)
   resp = client.copy_db_cluster_parameter_group({
-                                                    source_db_cluster_parameter_group_identifier: source,
-                                                    target_db_cluster_parameter_group_identifier: target,
-                                                    target_db_cluster_parameter_group_description: 'Custom Cluster dB parameter group with Connection Logging',
-                                                })
+    source_db_cluster_parameter_group_identifier: source,
+    target_db_cluster_parameter_group_identifier: target,
+    target_db_cluster_parameter_group_description: 'Custom Cluster dB parameter group with Connection Logging',
+  })
   if resp.db_cluster_parameter_group.db_cluster_parameter_group_name == target
     puts "Successfully created clone of Cluster dB ParameterGroup #{source} -> #{target}"
   else
@@ -28,36 +28,61 @@ end
 
 def modify_cluster_parameter_group(client, target, family)
   resp = client.modify_db_cluster_parameter_group({
-                                                      db_cluster_parameter_group_name: target,
-                                                      parameters: [
-                                                          {
-                                                              apply_method: "immediate",
-                                                              parameter_name: "log_connections",
-                                                              parameter_value: "1",
-                                                              description: "Log connections to the Server",
-                                                              apply_type: "dynamic",
-                                                              data_type: "boolean",
-                                                              allowed_values: "0,1",
-                                                              is_modifiable: true,
-                                                              minimum_engine_version: "#{family}",
-                                                              supported_engine_modes: ["provisioned"],
-                                                              source: 'engine-default',
-                                                          },
-                                                          {
-                                                              apply_method: "immediate",
-                                                              parameter_name: "log_disconnections",
-                                                              parameter_value: "1",
-                                                              description: "Log disconnections to the Server",
-                                                              apply_type: "dynamic",
-                                                              data_type: "boolean",
-                                                              allowed_values: "0,1",
-                                                              is_modifiable: true,
-                                                              minimum_engine_version: "#{family}",
-                                                              supported_engine_modes: ["provisioned"],
-                                                              source: 'engine-default',
-                                                          },
-                                                      ],
-                                                  })
+    db_cluster_parameter_group_name: target,
+    parameters: [
+      {
+        apply_method: "immediate",
+        parameter_name: "log_connections",
+        parameter_value: "1",
+        description: "Log connections to the Server",
+        apply_type: "dynamic",
+        data_type: "boolean",
+        allowed_values: "0,1",
+        is_modifiable: true,
+        minimum_engine_version: "#{family}",
+        supported_engine_modes: ["provisioned"],
+        source: 'engine-default',
+      },
+      {
+        apply_method: "immediate",
+        parameter_name: "log_disconnections",
+        parameter_value: "1",
+        description: "Log disconnections to the Server",
+        apply_type: "dynamic",
+        data_type: "boolean",
+        allowed_values: "0,1",
+        is_modifiable: true,
+        minimum_engine_version: "#{family}",
+        supported_engine_modes: ["provisioned"],
+        source: 'engine-default',
+      },
+      {
+        apply_method: "pending-reboot",
+        parameter_name: "track_activity_query_size",
+        parameter_value: "10240",
+        description: "Sets the size reserved for pg_stat_activity.current_query, in bytes.",
+        apply_type: "static",
+        data_type: "boolean",
+        allowed_values: "100-102400",
+        is_modifiable: true,
+        minimum_engine_version: "#{family}",
+        supported_engine_modes: ["provisioned"],
+        source: 'engine-default',
+      },
+      {
+        apply_method: "pending-reboot",
+        parameter_name: "shared_preload_libraries",
+        parameter_value: "pg_stat_statements",
+        description: "Lists shared libraries to preload into server.",
+        apply_type: "static",
+        data_type: "list",
+        allowed_values: "auto_explain,orafce,pgaudit,pg_similarity,pg_stat_statements,pg_hint_plan",
+        is_modifiable: true,
+        minimum_engine_version: "#{family}",
+        supported_engine_modes: ["provisioned"],
+      }
+    ]
+  })
   if resp.db_cluster_parameter_group_name == target
     puts "Modified Cluster dB ParameterGroup #{resp.db_cluster_parameter_group_name}"
   else
@@ -67,43 +92,68 @@ end
 
 def clone_and_modify_instance_parameter_group(client, source, target, family)
   resp = client.copy_db_parameter_group({
-                                            source_db_parameter_group_identifier: source,
-                                            target_db_parameter_group_identifier: target,
-                                            target_db_parameter_group_description: "Procore Paramaters with Connection Logging Enabled",
-                                        })
+    source_db_parameter_group_identifier: source,
+    target_db_parameter_group_identifier: target,
+    target_db_parameter_group_description: "Procore Paramaters with Connection Logging Enabled",
+  })
 
   if resp.db_parameter_group.db_parameter_group_name == target
     puts "Successfully cloned Instance ParameterGroup #{source} to #{target}"
 
     resp = client.modify_db_parameter_group({
-                                                db_parameter_group_name: target,
-                                                parameters: [
-                                                    {
-                                                        apply_method: "immediate",
-                                                        parameter_name: "log_connections",
-                                                        parameter_value: "1",
-                                                        description: "Log successful connections to the server",
-                                                        apply_type: "dynamic",
-                                                        data_type: "boolean",
-                                                        allowed_values: "0,1",
-                                                        is_modifiable: true,
-                                                        minimum_engine_version: "#{family}",
-                                                        supported_engine_modes: ["provisioned"],
-                                                    },
-                                                    {
-                                                        apply_method: "immediate",
-                                                        parameter_name: "log_disconnections",
-                                                        parameter_value: "1",
-                                                        description: "Log disconnections from the Server",
-                                                        apply_type: "dynamic",
-                                                        data_type: "boolean",
-                                                        allowed_values: "0,1",
-                                                        is_modifiable: true,
-                                                        minimum_engine_version: "#{family}",
-                                                        supported_engine_modes: ["provisioned"],
-                                                    }
-                                                ],
-                                            })
+      db_parameter_group_name: target,
+      parameters: [
+        {
+          apply_method: "immediate",
+          parameter_name: "log_connections",
+          parameter_value: "1",
+          description: "Log successful connections to the server",
+          apply_type: "dynamic",
+          data_type: "boolean",
+          allowed_values: "0,1",
+          is_modifiable: true,
+          minimum_engine_version: "#{family}",
+          supported_engine_modes: ["provisioned"],
+        },
+        {
+          apply_method: "immediate",
+          parameter_name: "log_disconnections",
+          parameter_value: "1",
+          description: "Log disconnections from the Server",
+          apply_type: "dynamic",
+          data_type: "boolean",
+          allowed_values: "0,1",
+          is_modifiable: true,
+          minimum_engine_version: "#{family}",
+          supported_engine_modes: ["provisioned"],
+        },
+        {
+          apply_method: "pending-reboot",
+          parameter_name: "track_activity_query_size",
+          parameter_value: "10240",
+          description: "Sets the size reserved for pg_stat_activity.current_query, in bytes.",
+          apply_type: "static",
+          data_type: "boolean",
+          allowed_values: "100-102400",
+          is_modifiable: true,
+          minimum_engine_version: "#{family}",
+          supported_engine_modes: ["provisioned"],
+          source: 'engine-default',
+        },
+        {
+          apply_method: "pending-reboot",
+          parameter_name: "shared_preload_libraries",
+          parameter_value: "pg_stat_statements",
+          description: "Lists shared libraries to preload into server.",
+          apply_type: "static",
+          data_type: "list",
+          allowed_values: "auto_explain,orafce,pgaudit,pg_similarity,pg_stat_statements,pg_hint_plan",
+          is_modifiable: true,
+          minimum_engine_version: "#{family}",
+          supported_engine_modes: ["provisioned"],
+        }
+      ],
+    })
     if resp.db_parameter_group_name == target
       puts "Modified Instance Parameter Group for #{resp.db_parameter_group_name}"
     else
@@ -139,8 +189,8 @@ end
 
 def get_family_from_parameter_group(client, cluster_name)
   resp = client.describe_db_cluster_parameter_groups({
-                                                         db_cluster_parameter_group_name: cluster_name,
-                                                     })
+    db_cluster_parameter_group_name: cluster_name,
+  })
   family_number = resp.db_cluster_parameter_groups[0].db_parameter_group_family.scan(/(\d+\.\d+)/).first[0]
   family_number
 end
